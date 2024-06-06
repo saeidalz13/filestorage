@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -12,15 +11,9 @@ import (
 	"strings"
 )
 
-type FileHash struct {
-	Key     []byte
-	KeySize int
-}
-
 type Server struct {
-	fileHash *FileHash
-	mux      *http.ServeMux
-	db       *Db
+	mux *http.ServeMux
+	db  *Db
 }
 
 type FileResp struct {
@@ -34,8 +27,8 @@ type Db struct {
 
 // Gets the []byte of the content of the file and
 // pointer to the FileHash to generate oid
-func (d *Db) AddFile(f []byte, repo string, fileHash *FileHash) (string, error) {
-	oid, err := fileHash.createOid(f)
+func (d *Db) AddFile(f []byte, repo string) (string, error) {
+	oid, err := createOid(f)
 	if err != nil {
 		return "", err
 	}
@@ -73,7 +66,7 @@ func (s *Server) HandlePutStoreFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	oid, err := s.db.AddFile(body, repo, s.fileHash)
+	oid, err := s.db.AddFile(body, repo)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -100,19 +93,7 @@ func (s *Server) HandleGetFile(w http.ResponseWriter, r *http.Request) {
 	w.Write(file)
 }
 
-// Generate a 32 byte key for AES hash
-func (f *FileHash) generateKey() error {
-	key := make([]byte, f.KeySize)
-	_, err := rand.Read(key)
-	if err != nil {
-		return err
-	}
-
-	f.Key = key
-	return nil
-}
-
-func (f *FileHash) createOid(fileContent []byte) (string, error) {
+func createOid(fileContent []byte) (string, error) {
 	hasher := sha256.New()
 	hasher.Write(fileContent)
 	hash := hasher.Sum(nil)
@@ -122,18 +103,11 @@ func (f *FileHash) createOid(fileContent []byte) (string, error) {
 }
 
 func main() {
-	fh := &FileHash{KeySize: 32}
-	err := fh.generateKey()
-	if err != nil {
-		panic(err)
-	}
-
 	mux := http.NewServeMux()
 
 	server := Server{
-		fileHash: fh,
-		mux:      mux,
-		db:       &Db{fileStorage: make(map[string][]byte)},
+		mux: mux,
+		db:  &Db{fileStorage: make(map[string][]byte)},
 	}
 
 	server.mux.HandleFunc("GET /store/{repo}/{oid}", server.HandleGetFile)
