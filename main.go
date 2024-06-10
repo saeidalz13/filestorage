@@ -83,7 +83,7 @@ func (s *Server) HandleGetFile(w http.ResponseWriter, r *http.Request) {
 	repo := r.PathValue("repo")
 	oid := r.PathValue("oid")
 
-	file, err := s.db.SelectFile(string(oid), repo)
+	file, err := s.db.SelectFile(oid, repo)
 	if err != nil {
 		log.Println(err)
 		return
